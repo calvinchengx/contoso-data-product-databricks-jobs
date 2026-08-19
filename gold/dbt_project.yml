@@ -1,0 +1,15 @@
+# Consumer overlay. Models, macros, and tests come from contoso-data-product.
+name: contoso_gold
+version: "1.0.0"
+config-version: 2
+profile: contoso_gold
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+flags:
+  send_anonymous_usage_stats: false
+  use_materialization_v2: false
+models:
+  contoso_gold:
+    +materialized: table
+    +file_format: delta

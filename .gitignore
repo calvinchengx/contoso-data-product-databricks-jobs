@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+state.json
+bronze_metrics.json
+silver_metrics.json
+product_snapshot.json
+# Staged into gold/ by steps/gold.py on every run, from the product package.
+# Committing them would be a second copy of core's SQL, which is the one thing
+# a leaf may never hold.
+gold/models/
+gold/macros/
+gold/tests/
+gold/target/
+gold/logs/
+.pytest_cache/

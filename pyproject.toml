@@ -1,0 +1,62 @@
+[project]
+name = "contoso-data-product-databricks-jobs"
+version = "0.1.0"
+description = "The Contoso data product for Databricks Jobs: ingest, the medallion runners, and the dbt profile that platform needs."
+requires-python = ">=3.12"
+authors = [{name = "Calvin Cheng", email = "calvin@calvinx.com"}]
+
+# WHAT A DATABRICKS TEAM WOULD WRITE, and nothing else. The transforms are NOT
+# here: bronze and silver come from `contoso-data-product` and so does every
+# line of gold SQL. This leaf binds them to Databricks -- a volume to land in, a
+# warehouse to build gold on, a dbt profile -- and that binding is the only
+# thing a second engine would have to write differently.
+dependencies = [
+    # THE PRODUCT, BY TAG. Not a path: a leaf that resolves core from a sibling
+    # checkout cannot be cloned on its own, which is DoD item 1 in the family
+    # plan and the defect that made snowflake-platform-tasks unreachable by two
+    # consecutive core releases.
+    "contoso-data-product",
+    # The emulator-or-real switch. Published by databricks-emulator's release,
+    # pinned by the PLATFORM's versions.env -- this leaf takes whatever the
+    # platform installed rather than pinning a second opinion.
+    "databricks-target",
+    "requests>=2.32,<3",
+    "pyarrow>=18,<24",
+    # THE ERP VENDOR IS A CHANGE STREAM, so a Kafka client is the only way to
+    # consume it. Reading erp.customer directly would be a snapshot, and a
+    # snapshot cannot say that a customer was in Germany before they were in
+    # France, which is the entire reason this vendor exists.
+    "confluent-kafka>=2.5,<3",
+    # Not to ingest with: the CDC step reconciles the stream's net effect
+    # against the ERP's own row count, because a connector that stopped early
+    # produces a stream that is stable, well-formed, and short.
+    "psycopg[binary]>=3.2,<4",
+]
+
+[dependency-groups]
+engine = [
+    "databricks-sdk==0.129.0",
+    "databricks-connect==19.1",
+]
+# dbt-databricks 1.12.4 pins databricks-sdk<0.118. Do not include-group engine.
+dbt = [
+    "dbt-databricks==1.12.4",
+]
+dev = ["pytest>=9.0.3,<10", "ruff>=0.14,<0.15"]
+
+[tool.uv]
+package = false
+conflicts = [
+    [
+        { group = "engine" },
+        { group = "dbt" },
+    ],
+]
+
+[tool.uv.sources]
+contoso-data-product = { url = "https://github.com/calvinchengx/contoso-data-product/releases/download/v0.2.0/contoso_data_product-0.2.0-py3-none-any.whl" }
+databricks-target = { url = "https://github.com/calvinchengx/databricks-emulator/releases/download/v0.2.5/databricks_target-0.1.0-py3-none-any.whl" }
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
