@@ -46,6 +46,25 @@ dev = ["pytest>=9.0.3,<10", "ruff>=0.14,<0.15"]
 
 [tool.uv]
 package = false
+# sqlparse reaches this lock ONLY through dbt-core, which declares
+# `sqlparse<0.6.0`. Four advisories (GHSA-prg7-hcfm-mfcr, GHSA-pwgv-4x5q-6m9f,
+# GHSA-f2ff-p2ww-7p4p, GHSA-3496-9g83-7v6x) all name 0.6.0 as the first patched
+# version, so there is no dbt release to upgrade INTO. A constraint cannot
+# resolve it -- narrowing cannot satisfy `<0.6.0` and `>=0.6.0` at once -- so
+# the maintainer's upper bound has to be overridden.
+#
+# This lock is the one that MATTERS for dbt: the platform runs `steps/gold.py`
+# with `uv run --directory <this product>`, so dbt executes from here rather
+# than from the platform's own lock.
+#
+# Measured rather than assumed: dbt touches sqlparse in one place
+# (`dbt/compilation.py`), and `inject_ctes_into_sql` returns byte-identical
+# output under 0.5.5 and 0.6.0. Same override as databricks-emulator,
+# snowflake-emulator and databricks-platform-jobs.
+#
+# Re-check when dbt-core relaxes the bound: DELETE this override then rather
+# than leave it quietly pinning the ecosystem.
+override-dependencies = ["sqlparse>=0.6.0"]
 conflicts = [
     [
         { group = "engine" },
