@@ -78,7 +78,9 @@ def main() -> int:
             "connection": {
                 "config": {
                     "type": "Databricks",
-                    "hostPort": os.environ.get("DATABRICKS_HOST", "http://localhost:18470"),
+                    "hostPort": os.environ.get(
+                        "DATABRICKS_HOST", "http://localhost:18470"
+                    ),
                     "httpPath": "/sql/1.0/endpoints/wh-1",
                     # WRAPPED IN `authType`, not a bare `token`. OpenMetadata
                     # encrypts a service's connection when it stores it, and a
@@ -116,7 +118,9 @@ def main() -> int:
         "contracts": contracts,
         "metrics": list(METRICS),
     }
-    Path("catalog.json").write_text(json.dumps(catalogued, indent=2) + "\n", encoding="utf-8")
+    Path("catalog.json").write_text(
+        json.dumps(catalogued, indent=2) + "\n", encoding="utf-8"
+    )
     print(f"catalogued {PRODUCT_NAME} as {catalogued['fqn']}")
     return 0
 

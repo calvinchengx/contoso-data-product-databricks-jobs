@@ -38,16 +38,18 @@ def test_no_dependency_comes_from_a_sibling_checkout():
         for line in proj.splitlines()
         if "path = " in line and "../" in line and not line.lstrip().startswith("#")
     ]
-    assert not offenders, "a dependency resolves from a sibling checkout: " + str(offenders)
+    assert not offenders, "a dependency resolves from a sibling checkout: " + str(
+        offenders
+    )
 
 
 def test_core_is_pinned_to_a_release():
     """By tag or wheel URL, never a branch. A leaf that floats on core's main
     cannot say which product it built."""
     proj = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert re.search(r"contoso-data-product = \{ url = .*releases/download/v\d", proj), (
-        "contoso-data-product must come from a published release"
-    )
+    assert re.search(
+        r"contoso-data-product = \{ url = .*releases/download/v\d", proj
+    ), "contoso-data-product must come from a published release"
 
 
 def test_ingest_pulls_from_vendors_rather_than_writing_fixtures():
@@ -65,7 +67,9 @@ def test_ingest_pulls_from_vendors_rather_than_writing_fixtures():
         for marker in ("customer_id,name,email", "write_text("):
             if marker in body:
                 offenders.append(f"{p.name}: {marker}")
-    assert not offenders, "an ingest step composes bytes rather than fetching: " + str(offenders)
+    assert not offenders, "an ingest step composes bytes rather than fetching: " + str(
+        offenders
+    )
 
 
 def test_no_vendor_credential_is_written_in_this_repository():
@@ -83,7 +87,9 @@ def test_no_vendor_credential_is_written_in_this_repository():
                 continue
             if "string_value=" in line and '"' in line.split("string_value=", 1)[1]:
                 suspicious.append(f"{p.name}: {line.strip()}")
-    assert not suspicious, "a literal credential reaches the secret scope: " + str(suspicious)
+    assert not suspicious, "a literal credential reaches the secret scope: " + str(
+        suspicious
+    )
 
 
 def test_gold_records_the_measurement_and_still_fails():
@@ -122,8 +128,13 @@ def test_every_step_is_runnable_on_its_own():
     """
     missing = []
     for p in sorted(STEPS.glob("*.py")):
-        if p.name in ("target.py", "landing.py", "credentials.py", "sources.py",
-                      "spark_session.py"):
+        if p.name in (
+            "target.py",
+            "landing.py",
+            "credentials.py",
+            "sources.py",
+            "spark_session.py",
+        ):
             continue  # binding and helpers, imported rather than invoked
         tree = ast.parse(p.read_text(encoding="utf-8"))
         has_main = any(

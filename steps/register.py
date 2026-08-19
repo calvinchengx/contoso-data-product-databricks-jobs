@@ -28,7 +28,9 @@ def main() -> int:
             f"CREATE TABLE IF NOT EXISTS {CATALOG}.silver.{name} "
             f"USING delta LOCATION '{loc}'"
         )
-        stmt = w.statement_execution.execute_statement(warehouse_id=wh.id, statement=sql)
+        stmt = w.statement_execution.execute_statement(
+            warehouse_id=wh.id, statement=sql
+        )
         state = stmt.status.state.value if stmt.status and stmt.status.state else None
         print(f"  {name}: {state}")
         if state != "SUCCEEDED":

@@ -13,7 +13,9 @@ from target import tables_path
 def main() -> int:
     spark = connect()
     metrics = run_silver(spark, tables=tables_path())
-    Path("silver_metrics.json").write_text(json.dumps(metrics, default=str, indent=2), encoding="utf-8")
+    Path("silver_metrics.json").write_text(
+        json.dumps(metrics, default=str, indent=2), encoding="utf-8"
+    )
     print(
         f"silver: {metrics['silver_customers']} customers, "
         f"{metrics['silver_party']} parties, {metrics['party_matched']} matched"

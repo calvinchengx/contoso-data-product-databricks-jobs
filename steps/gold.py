@@ -50,8 +50,11 @@ def _query(w, warehouse_id: str, statement: str) -> list:
     payload = w.api_client.do(
         "POST",
         "/api/2.0/sql/statements",
-        body={"warehouse_id": warehouse_id, "statement": statement,
-              "wait_timeout": "30s"},
+        body={
+            "warehouse_id": warehouse_id,
+            "statement": statement,
+            "wait_timeout": "30s",
+        },
     )
     state = (payload.get("status") or {}).get("state")
     if state != "SUCCEEDED":
@@ -110,17 +113,19 @@ def _run_contracts(work: Path, env: dict) -> list[dict]:
         # names contracts bare, as `contracts` already does, so the two join.
         unique_id = r.get("unique_id", "")
         name = unique_id.split(".")[2] if unique_id.count(".") >= 2 else unique_id
-        failures.append({
-            "contract": name,
-            "status": r.get("status"),
-            "failures": r.get("failures"),
-            "detail": (r.get("message") or "").strip()[:200],
-            # OPTIONAL, and supplied by the PLATFORM. A platform knows which of
-            # its own emulator's defects it is living with; the product should
-            # not have to. A failure with no cause reads as unexplained, which
-            # is a worse state and should look like one.
-            **({"cause": KNOWN_CAUSES[name]} if name in KNOWN_CAUSES else {}),
-        })
+        failures.append(
+            {
+                "contract": name,
+                "status": r.get("status"),
+                "failures": r.get("failures"),
+                "detail": (r.get("message") or "").strip()[:200],
+                # OPTIONAL, and supplied by the PLATFORM. A platform knows which of
+                # its own emulator's defects it is living with; the product should
+                # not have to. A failure with no cause reads as unexplained, which
+                # is a worse state and should look like one.
+                **({"cause": KNOWN_CAUSES[name]} if name in KNOWN_CAUSES else {}),
+            }
+        )
     if rc != 0 and not failures:
         raise SystemExit(
             f"dbt test exited {rc} but run_results names no failing test -- "
@@ -237,9 +242,7 @@ def main() -> int:
         "revenue_usd": str(data[0][0]),
         "cancelled_revenue_usd": str(data[0][1]),
         "sale_lines": str(data[0][2]),
-        "contracts": sorted(
-            p.stem for p in (product / "tests").glob("*.sql")
-        ),
+        "contracts": sorted(p.stem for p in (product / "tests").glob("*.sql")),
         "runtime": "databricks",
         "catalog": CATALOG,
     }
@@ -249,7 +252,9 @@ def main() -> int:
     # distinction the field exists to carry.
     if contract_failures:
         snapshot["contract_failures"] = contract_failures
-    Path("product_snapshot.json").write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
+    Path("product_snapshot.json").write_text(
+        json.dumps(snapshot, indent=2) + "\n", encoding="utf-8"
+    )
     print(f"gold snapshot {snapshot}")
     if contract_failures:
         named = ", ".join(f["contract"] for f in contract_failures)

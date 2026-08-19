@@ -14,14 +14,14 @@ def connect():
     t = T()
     w = t.workspace_client()
     running = [
-        c
-        for c in w.clusters.list()
-        if getattr(c, "state", None) == State.RUNNING
+        c for c in w.clusters.list() if getattr(c, "state", None) == State.RUNNING
     ]
     if running:
         cluster_id = running[0].cluster_id
     else:
-        created = w.clusters.create(cluster_name="contoso", spark_version="13.3.x-scala2.12").result()
+        created = w.clusters.create(
+            cluster_name="contoso", spark_version="13.3.x-scala2.12"
+        ).result()
         cluster_id = created.cluster_id
     host = t.host.replace("http://", "").replace("https://", "")
     # pyspark ChannelBuilder skips TLS only for the name localhost.

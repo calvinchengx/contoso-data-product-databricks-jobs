@@ -43,7 +43,11 @@ def env_name(secret: str) -> str:
 
 
 def sources_dir() -> Path:
-    return Path(os.environ.get("SOURCES", Path(__file__).resolve().parents[2] / "contoso-sources"))
+    return Path(
+        os.environ.get(
+            "SOURCES", Path(__file__).resolve().parents[2] / "contoso-sources"
+        )
+    )
 
 
 def published(secret: str) -> str:

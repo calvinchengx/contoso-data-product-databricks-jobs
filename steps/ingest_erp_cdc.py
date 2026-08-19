@@ -66,14 +66,18 @@ def watermark(consumer: Consumer) -> int | None:
     try:
         _, high = consumer.get_watermark_offsets(TopicPartition(TOPIC, 0), timeout=30)
     except KafkaException as exc:
-        if exc.args and getattr(exc.args[0], "code", None) == KafkaError._UNKNOWN_PARTITION:
+        if (
+            exc.args
+            and getattr(exc.args[0], "code", None) == KafkaError._UNKNOWN_PARTITION
+        ):
             return None
         raise
     return high
 
 
-def settled(consumer: Consumer, polls: int = 3, gap: float = 5.0,
-            appear: float = 300.0) -> int:
+def settled(
+    consumer: Consumer, polls: int = 3, gap: float = 5.0, appear: float = 300.0
+) -> int:
     """The high watermark, once it has stopped moving.
 
     THE ALTERNATIVE IS A SLEEP, and a fixed wait is a flake generator: it

@@ -18,7 +18,9 @@ def main() -> int:
         # source tree and the WRONG value -- the vendor issues
         # `pos-key-8843-dev`, so anything reading the scope would have been
         # refused 401 by the very vendor this seeded a key for.
-        w.secrets.put_secret(scope=t.secret_scope, key=secret, string_value=published(secret))
+        w.secrets.put_secret(
+            scope=t.secret_scope, key=secret, string_value=published(secret)
+        )
         print(f"seeded {t.secret_scope}/{secret}")
     return 0
 

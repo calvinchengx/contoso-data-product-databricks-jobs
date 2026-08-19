@@ -37,8 +37,12 @@ def main() -> int:
         web_product_fields=["product_id", "name"],
         web_order_fields=["web_order_id", "email", "lines"],
     )
-    Path("bronze_metrics.json").write_text(json.dumps(metrics, default=str, indent=2), encoding="utf-8")
-    print(f"bronze: {metrics['bronze_customers']} POS customers, {metrics['bronze_orders']} orders")
+    Path("bronze_metrics.json").write_text(
+        json.dumps(metrics, default=str, indent=2), encoding="utf-8"
+    )
+    print(
+        f"bronze: {metrics['bronze_customers']} POS customers, {metrics['bronze_orders']} orders"
+    )
     return 0
 
 

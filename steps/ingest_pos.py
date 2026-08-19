@@ -98,7 +98,9 @@ def main() -> int:
     landing.record(pos_landed=landed)
     total = sum(v["bytes"] for v in landed.values())
     n_parts = sum(v["parts"] for v in landed.values())
-    print(f"Contoso POS: {n_parts} part(s) across {len(landed)} feed(s), {total:,} bytes")
+    print(
+        f"Contoso POS: {n_parts} part(s) across {len(landed)} feed(s), {total:,} bytes"
+    )
     return 0
 
 

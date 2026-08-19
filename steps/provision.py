@@ -25,7 +25,9 @@ def main() -> int:
     try:
         w.catalogs.create(name=CATALOG)
     except Exception as exc:
-        if "already" not in str(exc).lower() and "RESOURCE_ALREADY_EXISTS" not in str(exc):
+        if "already" not in str(exc).lower() and "RESOURCE_ALREADY_EXISTS" not in str(
+            exc
+        ):
             # UC OSS create is idempotent enough; a 409 is fine.
             if "409" not in str(exc):
                 print(f"catalog create: {exc}")
@@ -47,15 +49,17 @@ def main() -> int:
     # and it would read an empty landing directory -- which is not an error to
     # Spark, it is zero rows.
     state = landing._state()
-    state.update({
-        "workspace": WORKSPACE,
-        "warehouse": WAREHOUSE,
-        "warehouse_id": wh.id,
-        "http_path": f"/sql/1.0/endpoints/{wh.id}",
-        "catalog": CATALOG,
-        "target": t.name,
-        "host": t.host,
-    })
+    state.update(
+        {
+            "workspace": WORKSPACE,
+            "warehouse": WAREHOUSE,
+            "warehouse_id": wh.id,
+            "http_path": f"/sql/1.0/endpoints/{wh.id}",
+            "catalog": CATALOG,
+            "target": t.name,
+            "host": t.host,
+        }
+    )
     Path("state.json").write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
     print(f"provisioned warehouse {WAREHOUSE} id={wh.id} catalog={CATALOG}")
     return 0
