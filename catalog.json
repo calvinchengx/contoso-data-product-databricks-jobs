@@ -1,0 +1,17 @@
+{
+  "product": "contoso-analytics",
+  "domain": "contoso-commerce",
+  "service": "contoso-databricks",
+  "fqn": "contoso-databricks.contoso.gold.fct_revenue_summary",
+  "contracts": [
+    "contoso-analytics.fct_revenue_summary"
+  ],
+  "metrics": [
+    "revenue_usd",
+    "cancelled_revenue_usd",
+    "fiscal_year",
+    "product_segment",
+    "customer_segment",
+    "channel_system"
+  ]
+}

@@ -36,33 +36,32 @@ def T():
 
 
 def _emulator_pat() -> str:
-    """Seeded PAT. The published image writes it 0600 as nonroot; read via compose if needed."""
+    """The workspace token, placed here by whichever platform is running us.
+
+    A PRODUCT DOES NOT REACH INTO A PLATFORM. This function used to shell out
+    to `docker compose cp` against the platform's compose files when the file
+    was missing -- which worked only while the product lived inside the
+    platform repository, and broke the moment the two were separated: the
+    product's ROOT has no compose/ directory, and never should.
+
+    That coupling is the thing the split was for. A Databricks Job does not
+    know how its workspace was started; it is handed a credential. So the
+    platform delivers one (`make token` copies it out of the emulator, and
+    `make verify` depends on that), and this reads it.
+
+    On a real target there is nothing to seed: DATABRICKS_TOKEN is already in
+    the environment and `T()` never calls this.
+    """
     pat = ROOT / "data" / "admin.pat"
     try:
         return pat.read_text(encoding="utf-8").strip()
-    except OSError:
-        pass
-    import subprocess
-
-    dest = ROOT / "data" / "admin.pat"
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        "docker",
-        "compose",
-        "--env-file",
-        "versions.env",
-        "--profile",
-        "governance",
-        "-f",
-        "compose/docker-compose.yml",
-        "-f",
-        "compose/governance.yml",
-        "cp",
-        "databricks:/data/admin.pat",
-        str(dest),
-    ]
-    subprocess.check_call(cmd, cwd=ROOT)
-    return dest.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise SystemExit(
+            f"no workspace token at {pat} ({exc}).\n\n"
+            f"On the emulator the platform places it there -- run the pipeline "
+            f"through the platform (`make verify PRODUCT=...`), which depends "
+            f"on its `token` step. On a real workspace, export DATABRICKS_TOKEN."
+        ) from exc
 
 
 def landing_path() -> str:
