@@ -143,3 +143,21 @@ def test_every_step_is_runnable_on_its_own():
         if not has_main:
             missing.append(p.name)
     assert not missing, "steps with no main(): " + str(missing)
+
+
+def test_the_readme_inventory_matches_the_pinned_core():
+    """The README's product list must be what this leaf's pin actually contains.
+
+    A generated list that falls behind is worse than none: a reader trusts it
+    BECAUSE it looks generated. The check lives in the core, so all seven leaves
+    ask the same question of their own pin, and it fails here, in the repository
+    that has to fix it.
+
+    Regenerate with:  python -m contoso_product.show --markdown
+    """
+    from pathlib import Path
+
+    from contoso_product import show
+
+    ok, message = show.check(Path(__file__).resolve().parent.parent / "README.md")
+    assert ok, message
