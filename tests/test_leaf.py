@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import pathlib
 import re
+
+import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 STEPS = ROOT / "steps"
@@ -161,3 +164,84 @@ def test_the_readme_inventory_matches_the_pinned_core():
 
     ok, message = show.check(Path(__file__).resolve().parent.parent / "README.md")
     assert ok, message
+
+
+def _gold_module():
+    """Import steps/gold.py without importing the platform's target module.
+
+    The leaf's tests run with no emulator and no platform, and `target` is the
+    platform's. Only the pure verdict logic is under test here, so the import
+    is satisfied with a stub rather than skipped -- a skipped test on the one
+    function that decides whether contracts passed is not worth having.
+    """
+    import sys
+    import types
+
+    stub = types.ModuleType("target")
+    stub.CATALOG = "contoso"  # ty: ignore[unresolved-attribute]
+    stub.WAREHOUSE = "wh"  # ty: ignore[unresolved-attribute]
+    stub.T = object  # ty: ignore[unresolved-attribute]
+    sys.modules.setdefault("target", stub)
+    spec = importlib.util.spec_from_file_location("_gold_under_test", STEPS / "gold.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _results(rows):
+    return {
+        "args": {"which": "test"},
+        "results": [
+            {
+                "unique_id": f"test.contoso_gold.{n}.abc",
+                "status": s,
+                "failures": f,
+                "message": "",
+            }
+            for n, s, f in rows
+        ],
+    }
+
+
+def test_gold_runs_as_a_job_task_not_as_dbt_on_this_host():
+    """The point of the step, asserted where it can be checked cheaply.
+
+    Shelling out to dbt here scores "gold builds on Databricks" against a path
+    that never touches Jobs, the workspace, or a run state. If this ever
+    reverts, it will revert quietly -- the numbers come out the same.
+    """
+    gold = (STEPS / "gold.py").read_text(encoding="utf-8")
+    assert "dbt_task" in gold, "gold must run through Jobs"
+    assert "/api/2.0/workspace/import" in gold, "the project must reach the workspace"
+    assert "subprocess" not in gold, "dbt is being run on this host again"
+
+
+def test_a_contract_verdict_is_refused_from_another_command():
+    """`dbt run`'s artefact is not the contracts' verdict.
+
+    The task stops at its first failing command, so a failed `dbt run` leaves
+    its own run_results behind. Read as a verdict, that publishes a clean
+    snapshot for a run where the models never built.
+    """
+    gold = _gold_module()
+    payload = {"args": {"which": "run"}, "results": []}
+    with pytest.raises(SystemExit) as exc:
+        gold._contract_failures(payload, [])
+    assert "dbt run" in str(exc.value)
+
+
+def test_a_named_contract_that_never_ran_is_a_failure():
+    """A globbed filename is not evidence the runtime evaluated it."""
+    gold = _gold_module()
+    with pytest.raises(SystemExit) as exc:
+        gold._contract_failures(_results([("ran", "pass", 0)]), ["ran", "never_ran"])
+    assert "never_ran" in str(exc.value)
+
+
+def test_failing_contracts_are_named_in_dbts_own_words():
+    gold = _gold_module()
+    out = gold._contract_failures(
+        _results([("ok_one", "pass", 0), ("bad_one", "fail", 3)]), ["ok_one", "bad_one"]
+    )
+    assert [f["contract"] for f in out] == ["bad_one"]
+    assert out[0]["failures"] == 3

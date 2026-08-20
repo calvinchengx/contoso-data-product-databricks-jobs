@@ -1,15 +1,36 @@
-"""dbt-databricks over the product gold project. Adapter only; SQL is the product's."""
+"""The product's gold project, run AS A DATABRICKS JOB TASK.
+
+NOT `dbt` on this host. This step used to shell out to `dbt run` and `dbt test`
+from the machine driving the platform, which meant the thing being rehearsed --
+"gold builds on Databricks" -- was only ever "gold builds on a laptop that can
+reach Databricks". Every Jobs concern that a real deployment has to survive
+(the project reaching the workspace, the runtime resolving a profile, the run
+having a state, artefacts coming back from somewhere this process cannot see)
+was skipped by construction, and the cell was scored on a path nobody ships.
+
+The project is now uploaded to the workspace and run as a `dbt_task`, so dbt
+executes INSIDE the runtime and this process learns what happened only through
+the Jobs API -- run state, and `run_results.json` returned as a task artefact.
+"""
 
 from __future__ import annotations
 
+import base64
 import json
-import os
 import shutil
-import subprocess
+import time
 from pathlib import Path
 
 from contoso_product import gold_dir
 from target import CATALOG, T, WAREHOUSE
+
+# Where the project lands in the workspace. `dbt_task.project_directory` reads
+# from here, not from this host's disk -- the runtime cannot see this host.
+WORKSPACE_DIR = "/Workspace/contoso/gold"
+
+# The schema gold materialises into, and the one the generated profile carries.
+GOLD_SCHEMA = "gold"
+
 
 # Contract failures this platform can already explain, by contract name. Both
 # of these are one emulator defect: decimal columns are registered in Unity
@@ -68,69 +89,182 @@ def _query(w, warehouse_id: str, statement: str) -> list:
     return []
 
 
-def _run_contracts(work: Path, env: dict) -> list[dict]:
-    """Run the ODCS contracts and return what failed, in dbt's own words.
+def _upload(w, work: Path) -> list[str]:
+    """Put the assembled project into the workspace, which is where Jobs reads it.
 
-    THE CONTRACTS, ACTUALLY RUN. This step once invoked `dbt run` alone and then
-    published a snapshot listing five contracts by GLOBBING THEIR FILENAMES off
-    disk -- so the snapshot named five guarantees this runtime had never once
-    evaluated, and `compare_products` compared that list against a runtime where
-    they had genuinely passed. Two runtimes "agreeing on contracts" while only
-    one ran them is worse than not comparing at all.
+    format=RAW, because these are workspace FILES and not notebooks. A dbt
+    project imported as SOURCE is stored as Python and comes back wrong.
+
+    The whole project goes up, `profiles.yml` included, even though `dbt_task`
+    generates its own profile and runs dbt with `--profiles-dir` pointing at it.
+    Uploading exactly what is on disk keeps the workspace copy a faithful copy;
+    dropping the one file the emulator happens to ignore would make this
+    platform's artefact differ from the project it claims to have run, for the
+    benefit of nothing.
     """
-    rc = subprocess.call(
-        ["dbt", "test", "--project-dir", str(work), "--profiles-dir", str(work)],
-        env=env,
-    )
-    results = work / "target" / "run_results.json"
-    if not results.exists():
-        raise SystemExit(
-            f"dbt test exited {rc} but wrote no {results} -- refusing to guess "
-            f"whether the contracts passed."
+    sent = []
+    for path in sorted(work.rglob("*")):
+        if not path.is_file() or "target" in path.parts or path.name.startswith("."):
+            continue
+        rel = path.relative_to(work).as_posix()
+        w.api_client.do(
+            "POST",
+            "/api/2.0/workspace/import",
+            body={
+                "path": f"{WORKSPACE_DIR}/{rel}",
+                "format": "RAW",
+                "overwrite": True,
+                "content": base64.b64encode(path.read_bytes()).decode(),
+            },
         )
-    payload = json.loads(results.read_text(encoding="utf-8"))
+        sent.append(rel)
+    if "dbt_project.yml" not in sent:
+        raise SystemExit(f"assembled no dbt_project.yml to upload: {sent}")
+    return sent
 
+
+def _run_gold_job(w, warehouse_id: str) -> tuple[dict, dict]:
+    """Create and run the dbt job, and return (run, run_results.json).
+
+    Both `dbt run` and `dbt test` are ONE task, in that order, because the
+    contracts must be evaluated by the same runtime that built the models --
+    running them from here again would be the host path this step exists to
+    leave behind.
+
+    The run is polled rather than awaited with the SDK's waiter: a failing
+    contract makes the run FAIL, and the waiter raises on that. A failed run is
+    exactly when its artefacts matter, so the failure has to be a value here,
+    not an exception thrown before the artefact is read.
+    """
+    created = w.api_client.do(
+        "POST",
+        "/api/2.2/jobs/create",
+        body={
+            "name": "contoso-gold",
+            "tasks": [
+                {
+                    "task_key": "gold",
+                    "dbt_task": {
+                        "commands": ["dbt run", "dbt test"],
+                        "project_directory": WORKSPACE_DIR,
+                        "warehouse_id": warehouse_id,
+                        "catalog": CATALOG,
+                        "schema": GOLD_SCHEMA,
+                    },
+                    # The product's `sources.yml` reads the silver location
+                    # from the environment, so the environment has to reach the
+                    # RUNTIME -- this host's exported vars mean nothing there.
+                    # `spark_env_vars` is the documented way a task carries
+                    # them, and it is what makes the same project text work
+                    # against a real workspace.
+                    "new_cluster": {
+                        "spark_env_vars": {
+                            "CONTOSO_SILVER_DATABASE": CATALOG,
+                            "CONTOSO_SILVER_SCHEMA": "silver",
+                            "LAKEHOUSE_ID": CATALOG,
+                        }
+                    },
+                }
+            ],
+        },
+    )
+    job_id = created["job_id"]
+    run_id = w.api_client.do("POST", "/api/2.2/jobs/run-now", body={"job_id": job_id})[
+        "run_id"
+    ]
+
+    deadline = time.time() + 900.0
+    run: dict = {}
+    while time.time() < deadline:
+        run = w.api_client.do("GET", f"/api/2.2/jobs/runs/get?run_id={run_id}")
+        if (run.get("state") or {}).get("life_cycle_state") in (
+            "TERMINATED",
+            "SKIPPED",
+            "INTERNAL_ERROR",
+        ):
+            break
+        time.sleep(1.0)
+    else:
+        raise SystemExit(f"gold job run {run_id} never reached a terminal state: {run}")
+
+    # RAW, not `w.jobs.get_run_output`. The SDK's `DbtOutput` models
+    # `artifacts_link` and `artifacts_headers` -- a URL to fetch elsewhere --
+    # and this emulator returns the artefacts INLINE under `artifacts`. The
+    # typed model has no field for that, so the SDK drops it and every run
+    # looks like it produced nothing. Same transport, same auth, minus the
+    # model that discards the field, exactly as `_query` does above.
+    #
+    # This is a real deviation from Databricks and it is written down rather
+    # than hidden: against a real workspace this read becomes a fetch of
+    # `artifacts_link`. It is the one place in this step where the emulator and
+    # the thing it rehearses do not agree.
+    output = w.api_client.do("GET", f"/api/2.2/jobs/runs/get-output?run_id={run_id}")
+    artifacts = ((output.get("dbt_output") or {}).get("artifacts")) or {}
+    raw = artifacts.get("run_results.json")
+    if not raw:
+        state = (run.get("state") or {}).get("result_state")
+        raise SystemExit(
+            f"the gold job finished {state} and returned no run_results.json -- "
+            f"refusing to guess whether the models built or the contracts passed. "
+            f"stderr: {(output.get('error') or '')[:300]}"
+        )
+    return run, json.loads(raw)
+
+
+def _contract_failures(payload: dict, expected: list[str]) -> list[dict]:
+    """Read the contracts' verdict out of the job's own artefact."""
     # ASSERT WHICH INVOCATION WROTE THIS. dbt overwrites run_results.json on
-    # every invocation and `dbt run` shares this target directory, so the file
-    # is only the contracts' verdict if the last command was `dbt test`. Reading
-    # it without checking is not theoretical: inspecting it after a later `dbt
-    # run` returned `which: "run"`, nine model rows and zero failures -- which,
-    # believed, publishes a snapshot asserting NO contract failures on a run
-    # where two failed. That is the precise false green this whole design exists
-    # to prevent, so it fails loudly instead.
+    # every invocation and `dbt run` shares the target directory, so the file
+    # is only the contracts' verdict if the last command was `dbt test`. It
+    # still bites here, and for a sharper reason than before: the task runs the
+    # commands in order and STOPS AT THE FIRST FAILURE, so a `dbt run` that
+    # fails leaves `run`'s own artefact behind. Believed, that publishes a
+    # snapshot asserting no contract failures for a run where the models never
+    # built at all.
     which = (payload.get("args") or {}).get("which")
     if which != "test":
         raise SystemExit(
-            f"{results} was written by `dbt {which}`, not `dbt test` -- refusing "
-            f"to report contract results from another command's artefact."
+            f"the job's run_results.json was written by `dbt {which}`, not `dbt "
+            f"test` -- the task stops at its first failing command, so this is "
+            f"a run where `dbt {which}` failed, not a contract verdict."
         )
 
     failures = []
+    evaluated = set()
     for r in payload.get("results", []):
-        if r.get("status") in ("pass", "success"):
-            continue
         # dbt names a singular test `test.<project>.<name>.<hash>`; the snapshot
         # names contracts bare, as `contracts` already does, so the two join.
         unique_id = r.get("unique_id", "")
         name = unique_id.split(".")[2] if unique_id.count(".") >= 2 else unique_id
+        evaluated.add(name)
+        if r.get("status") in ("pass", "success"):
+            continue
         failures.append(
             {
                 "contract": name,
                 "status": r.get("status"),
                 "failures": r.get("failures"),
                 "detail": (r.get("message") or "").strip()[:200],
-                # OPTIONAL, and supplied by the PLATFORM. A platform knows which of
-                # its own emulator's defects it is living with; the product should
-                # not have to. A failure with no cause reads as unexplained, which
-                # is a worse state and should look like one.
+                # OPTIONAL, and supplied by the PLATFORM. A platform knows which
+                # of its own emulator's defects it is living with; the product
+                # should not have to. A failure with no cause reads as
+                # unexplained, which is a worse state and should look like one.
                 **({"cause": KNOWN_CAUSES[name]} if name in KNOWN_CAUSES else {}),
             }
         )
-    if rc != 0 and not failures:
+
+    # EVERY NAMED CONTRACT WAS ACTUALLY EVALUATED. The snapshot lists contracts
+    # by globbing their filenames, and a glob proves a file exists, not that the
+    # runtime ran it -- selection, a parse error in one file, or a rename all
+    # produce a snapshot naming guarantees this run never checked. Now that the
+    # verdict comes from dbt's own artefact, the two can be joined, and a
+    # contract that exists but did not run is a hard failure instead of a
+    # silently stronger-sounding snapshot.
+    missing = sorted(set(expected) - evaluated)
+    if missing:
         raise SystemExit(
-            f"dbt test exited {rc} but run_results names no failing test -- "
-            f"something failed that this cannot describe, so it is not "
-            f"publishing a snapshot that implies otherwise."
+            f"the snapshot would name contracts this run never evaluated: "
+            f"{missing}. dbt tested {sorted(evaluated)}."
         )
     return failures
 
@@ -146,47 +280,21 @@ def main() -> int:
             shutil.rmtree(dest)
         shutil.copytree(product / name, dest)
 
-    host = t.host
-    dbt_host = host.replace("https://", "").replace("http://", "")
-    path = wh.http_path
-    uri = f"{host}{path}"
-    env = os.environ.copy()
-    env.update(
-        {
-            "DATABRICKS_HOST": dbt_host,
-            "DATABRICKS_TOKEN": t.token,
-            "DATABRICKS_HTTP_PATH": path,
-            "DATABRICKS_CONNECTION_URI": uri,
-            "DATABRICKS_CATALOG": CATALOG,
-            "CONTOSO_SILVER_DATABASE": CATALOG,
-            "CONTOSO_SILVER_SCHEMA": "silver",
-            "LAKEHOUSE_ID": CATALOG,
-            "DBT_PROFILES_DIR": str(work.resolve()),
-            "DBT_SEND_ANONYMOUS_USAGE_STATS": "false",
-        }
-    )
-    subprocess.check_call(
-        ["dbt", "run", "--project-dir", str(work), "--profiles-dir", str(work)],
-        env=env,
-    )
-    # THE CONTRACTS, ACTUALLY RUN. This step used to invoke `dbt run` alone and
-    # then publish a snapshot listing five ODCS contracts by GLOBBING THEIR
-    # FILENAMES off disk -- so the snapshot named five guarantees this runtime
-    # had never once evaluated, and `compare_products` compared that list of
-    # names against a runtime where they had genuinely passed. Two runtimes
-    # "agreeing on contracts" while only one ran them is worse than not
-    # comparing at all.
-    #
-    # RECORDING A MEASUREMENT AND ASSERTING A PASS ARE TWO THINGS, and this used
-    # to do both in one act: a failing contract stopped the snapshot being
-    # written, so the failure erased the evidence along with the pass.
-    #
-    # That is right in general and wrong here. This runtime's gold is CORRECT --
-    # its aggregates are identical to the Fabric runtime's to the last decimal
-    # place -- and the two contracts that fail do so because of an emulator
-    # defect (databricks-emulator#46), not a product one. Refusing to publish
-    # took the cell out of the cross-runtime comparison the family exists to
-    # make, for a reason belonging to neither the product nor this platform.
+    w = t.workspace_client()
+    sent = _upload(w, work)
+    print(f"gold project uploaded to {WORKSPACE_DIR}: {len(sent)} files")
+
+    # The contracts this snapshot will name, taken from the product. They are
+    # joined against what dbt actually evaluated inside `_contract_failures`,
+    # so this list can no longer outrun the run that is supposed to back it.
+    expected = sorted(p.stem for p in (product / "tests").glob("*.sql"))
+
+    # RECORDING A MEASUREMENT AND ASSERTING A PASS ARE TWO THINGS, and this step
+    # used to do both in one act: a failing contract stopped the snapshot being
+    # written, so the failure erased the evidence along with the pass. That is
+    # right in general and wrong here -- refusing to publish takes the cell out
+    # of the cross-runtime comparison the family exists to make, for a reason
+    # that may belong to neither the product nor this platform.
     #
     # So the run still FAILS -- see the exit at the end, nothing is softened --
     # but the numbers are written down first, carrying the failures with them.
@@ -194,8 +302,23 @@ def main() -> int:
     # what must never happen is evidence recorded without the failure attached,
     # which is exactly the stale snapshot this platform once published, silently
     # outliving its own fix.
-    contract_failures = _run_contracts(work, env)
-    w = t.workspace_client()
+    run, results = _run_gold_job(w, wh.id)
+    state = (run.get("state") or {}).get("result_state")
+    print(f"gold job {state}")
+    contract_failures = _contract_failures(results, expected)
+
+    # A RUN THAT FAILED FOR A REASON DBT DID NOT NAME. `dbt test` failing on a
+    # contract is expected and is carried in the snapshot; the run failing while
+    # run_results names no failing test means something else broke -- the task,
+    # the agent, the warehouse -- and publishing a clean snapshot for it would
+    # assert a green this run never earned.
+    if state != "SUCCESS" and not contract_failures:
+        raise SystemExit(
+            f"the gold job finished {state} but its run_results names no failing "
+            f"test -- something failed that this cannot describe, so it is not "
+            f"publishing a snapshot that implies otherwise."
+        )
+
     # READ MONEY AT MONEY'S OWN GRAIN, and cast in the ENGINE rather than
     # rounding in Python.
     #
@@ -242,7 +365,7 @@ def main() -> int:
         "revenue_usd": str(data[0][0]),
         "cancelled_revenue_usd": str(data[0][1]),
         "sale_lines": str(data[0][2]),
-        "contracts": sorted(p.stem for p in (product / "tests").glob("*.sql")),
+        "contracts": expected,
         "runtime": "databricks",
         "catalog": CATALOG,
     }
