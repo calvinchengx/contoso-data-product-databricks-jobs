@@ -74,7 +74,7 @@ a Databricks Job runs one task per step:
 | `ingest` | four vendors over four transports, landed verbatim |
 | `bronze` → `silver` | **the product's** `run_bronze` / `run_silver` |
 | `register` | silver Delta paths as Unity Catalog EXTERNAL tables |
-| `gold` | `dbt-databricks` over **the product's** gold project |
+| `gold` | **the product's** gold project, uploaded to the workspace and run as a Jobs `dbt_task` |
 | `govern` | the same entities into OpenMetadata |
 
 ## What is deliberately NOT here
