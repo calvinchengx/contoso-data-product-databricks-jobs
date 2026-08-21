@@ -157,11 +157,24 @@ def _run_gold_job(w, warehouse_id: str) -> tuple[dict, dict]:
                     # `spark_env_vars` is the documented way a task carries
                     # them, and it is what makes the same project text work
                     # against a real workspace.
+                    #
+                    # DBT_-PREFIXED SINCE CORE v0.6.0, and the reason is not
+                    # Databricks': Snowflake's dbt Projects refuse any env var
+                    # key that is not UPPERCASE and DBT_-prefixed, so the names
+                    # this used to set could not be supplied there at all and
+                    # gold ran on every engine except the one named for running
+                    # dbt as a first-class object. The rename made the product
+                    # portable; nothing about it is specific to this cell.
+                    #
+                    # LAKEHOUSE_ID is GONE, not renamed. It was only ever here
+                    # because gold's default was `env_var('CONTOSO_SILVER_
+                    # DATABASE', env_var('LAKEHOUSE_ID'))` and Jinja evaluates
+                    # a default EAGERLY -- so a Fabric-only variable was
+                    # mandatory on Databricks. Core stopped nesting it.
                     "new_cluster": {
                         "spark_env_vars": {
-                            "CONTOSO_SILVER_DATABASE": CATALOG,
-                            "CONTOSO_SILVER_SCHEMA": "silver",
-                            "LAKEHOUSE_ID": CATALOG,
+                            "DBT_SILVER_DATABASE": CATALOG,
+                            "DBT_SILVER_SCHEMA": "silver",
                         }
                     },
                 }
