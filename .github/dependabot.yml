@@ -26,6 +26,29 @@ updates:
     groups:
       python:
         patterns: ['*']
+    ignore:
+      # pyarrow is held below 25 by databricks-connect, not by us.
+      # `databricks-connect==19.1` requires `pyarrow<25,>=11.0.0`, so the bump
+      # Dependabot keeps proposing, 23.0.1 -> 25.0.1, cannot resolve while the
+      # `engine` group exists. That is what has failed this repository's `uv`
+      # job every run since 19 August:
+      #
+      #   Because databricks-connect>=19.1 depends on pyarrow==25.0.1
+      #   and ...:engine depends on databricks-connect==19.1 ...
+      #   we can conclude that ...:engine cannot be used.
+      #
+      # Held rather than worked around. Widening our own `pyarrow>=18,<24` to
+      # admit 25 does not help: the constraint that refuses it belongs to
+      # databricks-connect, and the resolution fails either way. Minor and
+      # patch updates keep flowing.
+      #
+      # LIFT THIS when databricks-connect admits pyarrow 25. The tell is its
+      # `requires_dist` on PyPI, `pyarrow<25,>=11.0.0` today, growing a higher
+      # ceiling. Worth checking at the same time: 19.1 declares
+      # `requires_python = "==3.12.*"`, so it is also what confines this
+      # repository to 3.12 in practice.
+      - dependency-name: pyarrow
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /
