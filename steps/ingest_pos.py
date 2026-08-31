@@ -22,7 +22,6 @@ from __future__ import annotations
 import landing
 import requests
 from credentials import resolve
-
 from sources import POS_API, POS_KEY_SECRET
 
 # (operation path, landed subdirectory, part extension). Named from the OpenAPI
