@@ -28,7 +28,6 @@ import time
 
 import landing
 from confluent_kafka import Consumer, KafkaError, KafkaException, TopicPartition
-
 from sources import ERP_DB, ERP_HOST, ERP_PORT, ERP_TOPIC, ERP_USER, REDPANDA
 
 TOPIC = ERP_TOPIC

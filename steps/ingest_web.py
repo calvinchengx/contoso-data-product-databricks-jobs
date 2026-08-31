@@ -22,7 +22,6 @@ from __future__ import annotations
 import landing
 import requests
 from credentials import resolve
-
 from sources import WEB_API, WEB_KEY_SECRET
 
 FEEDS = [

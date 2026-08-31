@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 
 from contoso_product import gold_dir
-from target import CATALOG, T, WAREHOUSE
+from target import CATALOG, WAREHOUSE, T
 
 # Where the project lands in the workspace. `dbt_task.project_directory` reads
 # from here, not from this host's disk -- the runtime cannot see this host.

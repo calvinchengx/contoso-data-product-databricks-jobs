@@ -38,7 +38,6 @@ import hashlib
 import landing
 import requests
 from credentials import resolve
-
 from sources import REFERENCE_API, REFERENCE_KEY_SECRET
 
 FEEDS = [

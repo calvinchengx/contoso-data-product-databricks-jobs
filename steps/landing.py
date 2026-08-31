@@ -30,7 +30,12 @@ def day() -> str:
     existing = st.get("landing_day")
     if existing:
         return existing
-    chosen = dt.date.today().isoformat()
+    # LOCAL calendar day, explicitly. DTZ011 objects to `date.today()` because
+    # it silently depends on the machine's zone, and here that dependence is
+    # the point: this is the partition a person running the demo expects to
+    # see, and it is recorded in state.json on first use so every later step
+    # reads the same value rather than recomputing one.
+    chosen = dt.datetime.now().astimezone().date().isoformat()
     record(landing_day=chosen)
     return chosen
 
