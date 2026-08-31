@@ -49,6 +49,26 @@ updates:
       # repository to 3.12 in practice.
       - dependency-name: pyarrow
         update-types: ['version-update:semver-major']
+      # databricks-sdk is held by dbt-databricks, the other side of the
+      # `conflicts` pair this repository already declares. `dbt-databricks
+      # ==1.12.4` requires `databricks-sdk>=0.68.0,<0.118.0`, and `engine` pins
+      # 0.129.0, which is why the two groups are declared incompatible in
+      # pyproject.toml in the first place. Dependabot proposing 0.129.0 ->
+      # 0.133.0 fails in the `dbt` fork:
+      #
+      #   Because dbt-databricks==1.12.4 depends on
+      #   databricks-sdk>=0.68.0,<0.118.0 and databricks-sdk==0.133.0,
+      #   we can conclude that dbt-databricks==1.12.4 cannot be used.
+      #
+      # This is the SECOND package to fail this way, after pyarrow above, and
+      # it is not a coincidence: any dependency the two conflicting groups
+      # share will do it. Both are pinned exactly on purpose, so moving either
+      # is a deliberate act rather than something to automate.
+      #
+      # LIFT THIS when dbt-databricks widens its `databricks-sdk` ceiling past
+      # what `engine` pins. The tell is dbt-databricks's `requires_dist` on
+      # PyPI.
+      - dependency-name: databricks-sdk
 
   - package-ecosystem: github-actions
     directory: /
