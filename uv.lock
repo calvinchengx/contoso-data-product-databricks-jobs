@@ -76,7 +76,7 @@ name = "cffi"
 version = "2.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "(implementation_name != 'PyPy' and extra == 'group-36-contoso-data-product-databricks-jobs-dbt') or (implementation_name != 'PyPy' and extra == 'group-36-contoso-data-product-databricks-jobs-engine') or (extra == 'group-36-contoso-data-product-databricks-jobs-dbt' and extra == 'group-36-contoso-data-product-databricks-jobs-engine')" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9e/ef/008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/cffi-2.1.1.tar.gz", hash = "sha256:dd31f52ea1086513bb9df30f8fcee9b8918323ae067a3d5b78bc826a000712be", size = 530807, upload-time = "2026-08-03T21:21:18.939Z" }
 wheels = [
@@ -370,7 +370,7 @@ engine = [
 requires-dist = [
     { name = "confluent-kafka", specifier = ">=2.5,<3" },
     { name = "contoso-data-product", url = "https://github.com/calvinchengx/contoso-data-product/releases/download/v0.6.0/contoso_data_product-0.6.0-py3-none-any.whl" },
-    { name = "databricks-target", url = "https://github.com/calvinchengx/databricks-emulator/releases/download/v0.2.7/databricks_target-0.1.0-py3-none-any.whl" },
+    { name = "databricks-target", url = "https://github.com/calvinchengx/databricks-emulator/releases/download/v0.2.9/databricks_target-0.1.0-py3-none-any.whl" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "pyarrow", specifier = ">=18,<24" },
     { name = "requests", specifier = ">=2.32,<3" },
@@ -392,7 +392,7 @@ name = "cryptography"
 version = "50.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi", marker = "(platform_python_implementation != 'PyPy' and extra == 'group-36-contoso-data-product-databricks-jobs-dbt') or (platform_python_implementation != 'PyPy' and extra == 'group-36-contoso-data-product-databricks-jobs-engine') or (extra == 'group-36-contoso-data-product-databricks-jobs-dbt' and extra == 'group-36-contoso-data-product-databricks-jobs-engine')" },
+    { name = "cffi", marker = "platform_python_implementation != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/bb/ad/5d6702db60b1e40b41ef513b6967ff5848f307d50f8449baf1634f5908f1/cryptography-50.0.1.tar.gz", hash = "sha256:5dd9bda1c12b4162f6ff568eeb5e0ff956c28d14406e875cfe8a63a2d414ff20", size = 880381, upload-time = "2026-08-25T19:45:45.499Z" }
 wheels = [
@@ -536,9 +536,9 @@ pyarrow = [
 [[package]]
 name = "databricks-target"
 version = "0.1.0"
-source = { url = "https://github.com/calvinchengx/databricks-emulator/releases/download/v0.2.7/databricks_target-0.1.0-py3-none-any.whl" }
+source = { url = "https://github.com/calvinchengx/databricks-emulator/releases/download/v0.2.9/databricks_target-0.1.0-py3-none-any.whl" }
 wheels = [
-    { url = "https://github.com/calvinchengx/databricks-emulator/releases/download/v0.2.7/databricks_target-0.1.0-py3-none-any.whl", hash = "sha256:3e152088212802ca750dd23b34cfef9aea78e306c4efb3a5bca461eae14bb5f6" },
+    { url = "https://github.com/calvinchengx/databricks-emulator/releases/download/v0.2.9/databricks_target-0.1.0-py3-none-any.whl", hash = "sha256:43877fef31b62879556555364116103d0207c496551b3d5e5acd368a01af612a" },
 ]
 
 [package.metadata]
@@ -724,8 +724,8 @@ name = "google-auth"
 version = "2.57.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography", marker = "extra == 'group-36-contoso-data-product-databricks-jobs-dbt' or extra == 'group-36-contoso-data-product-databricks-jobs-engine'" },
-    { name = "pyasn1-modules", marker = "extra == 'group-36-contoso-data-product-databricks-jobs-dbt' or extra == 'group-36-contoso-data-product-databricks-jobs-engine'" },
+    { name = "cryptography" },
+    { name = "pyasn1-modules" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/41/64/55f316b729f92a552d26e00aa3b1542b2e149d0a5efe2842afff0cac7af7/google_auth-2.57.0.tar.gz", hash = "sha256:9b4f96d6a1feb5f7201231f47cfb3de08d8f176f8a61f9e461555116e95a8789", size = 370794, upload-time = "2026-08-25T19:18:26.419Z" }
 wheels = [
@@ -1258,9 +1258,9 @@ version = "2.3.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
-    { name = "python-dateutil", marker = "extra == 'group-36-contoso-data-product-databricks-jobs-dbt' or extra == 'group-36-contoso-data-product-databricks-jobs-engine'" },
-    { name = "pytz", marker = "extra == 'group-36-contoso-data-product-databricks-jobs-dbt' or extra == 'group-36-contoso-data-product-databricks-jobs-engine'" },
-    { name = "tzdata", marker = "extra == 'group-36-contoso-data-product-databricks-jobs-dbt' or extra == 'group-36-contoso-data-product-databricks-jobs-engine'" },
+    { name = "python-dateutil" },
+    { name = "pytz" },
+    { name = "tzdata" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/33/01/d40b85317f86cf08d853a4f495195c73815fdf205eef3993821720274518/pandas-2.3.3.tar.gz", hash = "sha256:e05e1af93b977f7eafa636d043f9f94c7ee3ac81af99c13508215942e64c993b", size = 4495223, upload-time = "2025-09-29T23:34:51.853Z" }
 wheels = [
@@ -1465,7 +1465,7 @@ name = "pyasn1-modules"
 version = "0.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyasn1", marker = "extra == 'group-36-contoso-data-product-databricks-jobs-dbt' or extra == 'group-36-contoso-data-product-databricks-jobs-engine'" },
+    { name = "pyasn1" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e9/e6/78ebbb10a8c8e4b61a59249394a4a594c1a7af95593dc933a349c8d00964/pyasn1_modules-0.4.2.tar.gz", hash = "sha256:677091de870a80aae844b1ca6134f54652fa2c8c5a52aa396440ac3106e941e6", size = 307892, upload-time = "2025-03-28T02:41:22.17Z" }
 wheels = [
@@ -1616,7 +1616,7 @@ name = "python-dateutil"
 version = "2.9.0.post0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "six", marker = "extra == 'group-36-contoso-data-product-databricks-jobs-dbt' or extra == 'group-36-contoso-data-product-databricks-jobs-engine'" },
+    { name = "six" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432, upload-time = "2024-03-01T18:36:20.211Z" }
 wheels = [
