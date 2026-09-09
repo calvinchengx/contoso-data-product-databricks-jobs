@@ -40,7 +40,7 @@ engine = [
 ]
 # dbt-databricks 1.12.4 pins databricks-sdk<0.118. Do not include-group engine.
 dbt = [
-    "dbt-databricks==1.12.4",
+    "dbt-databricks==1.12.5",
 ]
 dev = ["pytest>=9.0.3,<10", "ruff>=0.14,<0.17"]
 
