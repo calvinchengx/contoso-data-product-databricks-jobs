@@ -42,7 +42,7 @@ engine = [
 dbt = [
     "dbt-databricks==1.12.6",
 ]
-dev = ["pytest>=9.0.3,<10", "ruff>=0.14,<0.17"]
+dev = ["pytest>=9.0.3,<10", "ruff>=0.14,<0.18"]
 
 [tool.uv]
 package = false
